@@ -5,17 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:crypto/crypto.dart'; 
 
-// [FIX] Import model yang dibutuhkan
+// [PERBAIKAN 1] Import file konfigurasi Supabase Anda
+import '../config/supabase_config.dart';
 import '../models/mata_kuliah.dart';
 import '../models/absensi.dart';
 
 class PresensiProvider with ChangeNotifier {
-  final _supabase = Supabase.instance.client;
+  // [PERBAIKAN 2] Gunakan SupabaseConfig.instance, bukan Supabase.instance.client
+  final SupabaseClient _supabase = SupabaseConfig.instance;
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
-  // [FIX] Menambahkan variabel State untuk List Mata Kuliah dan Riwayat
   List<MataKuliah> _mataKuliahList = [];
   List<MataKuliah> get mataKuliahList => _mataKuliahList;
 
@@ -23,7 +24,7 @@ class PresensiProvider with ChangeNotifier {
   List<Absensi> get presensiList => _presensiList;
 
   // ---------------------------------------------------------------------------
-  // [FIX] Implementasi fetchMataKuliahAktif
+  // Implementasi fetchMataKuliahAktif
   // Mengambil data mata kuliah berdasarkan User ID dan Role
   // ---------------------------------------------------------------------------
   Future<void> fetchMataKuliahAktif(String userId, String role) async {
@@ -31,9 +32,6 @@ class PresensiProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Catatan: Query ini diasumsikan standar. Sesuaikan nama tabel 'mata_kuliah'
-      // dan relasinya jika struktur database Anda berbeda.
-      
       dynamic response;
       
       if (role == 'dosen') {
@@ -43,9 +41,7 @@ class PresensiProvider with ChangeNotifier {
             .select()
             .eq('dosen_id', userId);
       } else {
-        // Jika mahasiswa, ambil MK yang diambil (misal lewat tabel junction 'krs' atau 'kelas')
-        // Untuk saat ini kita ambil semua atau sesuaikan dengan query KRS Anda
-        // Contoh sederhana: Mengambil semua mata kuliah (logic perlu disesuaikan dengan DB Anda)
+        // Jika mahasiswa, ambil semua mata kuliah (sesuaikan query jika perlu)
         response = await _supabase
             .from('mata_kuliah')
             .select();
@@ -57,7 +53,6 @@ class PresensiProvider with ChangeNotifier {
       }
     } catch (e) {
       debugPrint("Error fetching mata kuliah: $e");
-      // Opsional: throw e; jika ingin handle error di UI
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -65,7 +60,7 @@ class PresensiProvider with ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
-  // [FIX] Implementasi fetchRiwayatPresensi
+  // Implementasi fetchRiwayatPresensi
   // Mengambil histori absensi mahasiswa
   // ---------------------------------------------------------------------------
   Future<void> fetchRiwayatPresensi(String userId) async {
@@ -73,8 +68,6 @@ class PresensiProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Mengambil data dari tabel absensi, join dengan sesi/mata_kuliah jika perlu nama MK
-      // Asumsi: tabel 'absensi' memiliki kolom yang sesuai dengan model Absensi.fromJson
       final response = await _supabase
           .from('absensi')
           .select()
@@ -94,7 +87,7 @@ class PresensiProvider with ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
-  // Logika Submit Presensi (Sudah ada sebelumnya)
+  // Logika Submit Presensi
   // ---------------------------------------------------------------------------
   Future<bool> submitPresensi(
       int mataKuliahId, String inputOtp, double lat, double long) async {
@@ -168,6 +161,8 @@ class PresensiProvider with ChangeNotifier {
     final period = 30;
     final currentCounter = (currentTime / period).floor();
 
+    // Cek OTP untuk periode saat ini dan beberapa periode sebelumnya/sesudahnya
+    // untuk mengakomodasi sedikit perbedaan waktu jam.
     final validPeriods = [
       currentCounter,
       currentCounter - 1,
