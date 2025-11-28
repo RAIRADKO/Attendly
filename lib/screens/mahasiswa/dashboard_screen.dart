@@ -13,24 +13,12 @@ class MahasiswaDashboardScreen extends StatefulWidget {
 
 class _MahasiswaDashboardScreenState extends State<MahasiswaDashboardScreen> {
   int _currentIndex = 0;
-  
-  // Variabel untuk menyimpan state jika user memilih presensi dari Home
   MataKuliah? _selectedMataKuliah;
 
-  // List of Screens
-  // Kita menggunakan method build agar bisa passing parameter dynamic
   Widget _buildCurrentScreen() {
     switch (_currentIndex) {
       case 0:
-        return MahasiswaHomeScreen(); // Menggunakan screen yang sudah dimodifikasi sebelumnya
-        // Note: Logic onSelectMataKuliah di HomeScreen perlu disesuaikan agar 
-        // memanggil _handleSelectMataKuliah di sini jika ingin tab berpindah otomatis.
-        // Namun untuk saat ini HomeScreen mahasiswa memiliki navigasi pushNamed sendiri.
-        // Agar UI "Tab" berfungsi sempurna, HomeScreen sebaiknya memanggil callback parent.
-        // Karena HomeScreen yang dibuat sebelumnya menggunakan Navigator.push, 
-        // kita biarkan perilaku itu atau sesuaikan nanti.
-        // Untuk Dashboard sesuai desain, tab Presensi biasanya untuk scan QR/Input Kode 
-        // tanpa konteks MK spesifik atau memilih dari dropdown.
+        return MahasiswaHomeScreen();
       case 1:
         if (_selectedMataKuliah != null) {
            return PresensiScreen(mataKuliah: _selectedMataKuliah!);
@@ -45,29 +33,48 @@ class _MahasiswaDashboardScreenState extends State<MahasiswaDashboardScreen> {
 
   Widget _buildEmptyPresensiState() {
     return Scaffold(
-      appBar: AppBar(title: Text('Presensi'), backgroundColor: Colors.blue[600]),
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: Text('Presensi', style: TextStyle(fontWeight: FontWeight.w600)),
+        backgroundColor: Colors.blue[600],
+        elevation: 0,
+      ),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(32.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.class_outlined, size: 64, color: Colors.grey[300]),
-              SizedBox(height: 16),
+              Container(
+                padding: EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.qr_code_scanner, size: 64, color: Colors.blue[600]),
+              ),
+              SizedBox(height: 24),
               Text(
                 'Pilih Mata Kuliah',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[700]),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey[800]),
               ),
+              SizedBox(height: 8),
               Text(
                 'Silakan pilih mata kuliah dari menu Beranda untuk melakukan presensi.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey[500]),
+                style: TextStyle(color: Colors.grey[600], height: 1.5),
               ),
-              SizedBox(height: 24),
-              ElevatedButton(
+              SizedBox(height: 32),
+              ElevatedButton.icon(
                 onPressed: () => setState(() => _currentIndex = 0),
-                child: Text('Ke Beranda'),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                icon: Icon(Icons.arrow_back),
+                label: Text('Kembali ke Beranda'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[600],
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               )
             ],
           ),
@@ -78,40 +85,45 @@ class _MahasiswaDashboardScreenState extends State<MahasiswaDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = Provider.of<AuthProvider>(context).currentUser;
-
     return Scaffold(
-      // Body dirender berdasarkan index
       body: _buildCurrentScreen(),
-      
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-            // Reset selection jika pindah manual ke tab presensi tanpa lewat home
-            if (index == 1 && _selectedMataKuliah == null) {
-               // Tetap di tab presensi tapi tampilan kosong/pilih MK
-            }
-          });
-        },
-        selectedItemColor: Colors.blue[600],
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_filled),
-            label: 'Beranda',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.qr_code_scanner),
-            label: 'Presensi',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'Riwayat',
-          ),
-        ],
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: Offset(0, -5),
+            ),
+          ],
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) => setState(() => _currentIndex = index),
+          selectedItemColor: Colors.blue[600],
+          unselectedItemColor: Colors.grey[400],
+          type: BottomNavigationBarType.fixed,
+          selectedLabelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+          unselectedLabelStyle: TextStyle(fontSize: 12),
+          elevation: 0,
+          items: [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_rounded, size: 26),
+              activeIcon: Icon(Icons.home, size: 26),
+              label: 'Beranda',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.qr_code_scanner_rounded, size: 26),
+              activeIcon: Icon(Icons.qr_code_scanner, size: 26),
+              label: 'Presensi',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.history_rounded, size: 26),
+              activeIcon: Icon(Icons.history, size: 26),
+              label: 'Riwayat',
+            ),
+          ],
+        ),
       ),
     );
   }
