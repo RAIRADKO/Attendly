@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 
 class OtpService {
@@ -13,33 +14,55 @@ class OtpService {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final counter = now ~/ period;
     
-    final key = utf8.encode(secretKey);
+    // PERBAIKAN: Decode secret key dengan benar
+    final key = base64Decode(secretKey);
+    
+    // PERBAIKAN: Convert counter to big-endian bytes (8 bytes)
     final counterBytes = _intToBytes(counter);
     
+    // Generate HMAC-SHA1
     final hmac = Hmac(sha1, key);
     final digest = hmac.convert(counterBytes);
     final hash = digest.bytes;
     
+    // Dynamic truncation
     final offset = hash[19] & 0xf;
     final binary = ((hash[offset] & 0x7f) << 24) |
                    ((hash[offset + 1] & 0xff) << 16) |
                    ((hash[offset + 2] & 0xff) << 8) |
                    (hash[offset + 3] & 0xff);
     
-    final otp = (binary % pow(10, 6)).toString().padLeft(6, '0');
-    return otp.substring(otp.length - 6);
+    final otp = (binary % 1000000).toString().padLeft(6, '0');
+    return otp;
   }
 
-  // PERBAIKAN: Menambahkan padding agar menjadi 8 bytes (64-bit integer)
+  // ✅ PERBAIKAN: Correct big-endian 64-bit encoding
   static List<int> _intToBytes(int value) {
-    var bytes = <int>[];
-    // Masukkan 4 byte nol di depan untuk melengkapi 8 byte (big-endian 64-bit)
-    bytes.addAll([0, 0, 0, 0]); 
-    
-    bytes.add((value >> 24) & 0xFF);
-    bytes.add((value >> 16) & 0xFF);
-    bytes.add((value >> 8) & 0xFF);
-    bytes.add(value & 0xFF);
-    return bytes;
+    final buffer = Uint8List(8);
+    final byteData = ByteData.view(buffer.buffer);
+    byteData.setUint64(0, value, Endian.big); // ✅ Big-endian
+    return buffer.toList();
+  }
+
+  // ✅ TAMBAHAN: Validation helper untuk mahasiswa
+  static bool validateOTP(String secretKey, String inputOtp) {
+    final currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final period = 30;
+    final currentCounter = currentTime ~/ period;
+
+    // Check current and previous periods (to handle clock skew)
+    final validPeriods = [
+      currentCounter,
+      currentCounter - 1,
+      currentCounter - 2,
+    ];
+
+    for (final counter in validPeriods) {
+      final expectedOtp = generateOTP(secretKey);
+      if (expectedOtp == inputOtp) {
+        return true;
+      }
+    }
+    return false;
   }
 }

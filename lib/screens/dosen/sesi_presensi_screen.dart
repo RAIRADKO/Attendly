@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/otp_service.dart';
 import '../../models/mata_kuliah.dart';
 import '../../widgets/loading_widget.dart';
+import '../../config/supabase_config.dart';
 
 class SesiPresensiScreen extends StatefulWidget {
   final MataKuliah mataKuliah;
@@ -151,7 +152,9 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
             // Live Attendees Section
             Consumer<SesiProvider>(
               builder: (context, provider, child) {
-                if (provider.isLoading && provider.presensiList.isEmpty) {
+                final sesiId = provider.currentSesi?.id ?? 0;
+                
+                if (sesiId == 0) {
                   return LoadingWidget(message: 'Menyiapkan sesi...');
                 }
 
@@ -165,58 +168,98 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
                           'Mahasiswa Hadir',
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         ),
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.green[100],
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            'Total: ${provider.presensiList.length}',
-                            style: TextStyle(
-                              color: Colors.green[800],
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                        StreamBuilder<List<Map<String, dynamic>>>(
+                          stream: SupabaseConfig.instance
+                              .from('absensi')
+                              .stream(primaryKey: ['id'])
+                              .eq('sesi_id', sesiId)
+                              .order('waktu_presensi', ascending: false),
+                          builder: (context, countSnapshot) {
+                            final count = countSnapshot.hasData ? countSnapshot.data!.length : 0;
+                            return Container(
+                              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.green[100],
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                'Total: $count',
+                                style: TextStyle(
+                                  color: Colors.green[800],
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),
                     SizedBox(height: 16),
                     
-                    if (provider.presensiList.isEmpty)
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32.0),
-                          child: Column(
-                            children: [
-                              Icon(Icons.people_outline, size: 48, color: Colors.grey[300]),
-                              SizedBox(height: 8),
-                              Text('Belum ada mahasiswa presensi', style: TextStyle(color: Colors.grey)),
-                            ],
-                          ),
-                        ),
-                      )
-                    else
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: NeverScrollableScrollPhysics(),
-                        itemCount: provider.presensiList.length,
-                        itemBuilder: (context, index) {
-                          final presensi = provider.presensiList[index];
-                          return Card(
-                            margin: EdgeInsets.only(bottom: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: Colors.green[100],
-                                child: Icon(Icons.check, color: Colors.green),
+                    StreamBuilder<List<Map<String, dynamic>>>(
+                      stream: SupabaseConfig.instance
+                          .from('absensi')
+                          .stream(primaryKey: ['id'])
+                          .eq('sesi_id', sesiId)
+                          .order('waktu_presensi', ascending: false),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) return LoadingWidget();
+                        
+                        final data = snapshot.data!;
+                        
+                        if (data.isEmpty) {
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32.0),
+                              child: Column(
+                                children: [
+                                  Icon(Icons.people_outline, size: 48, color: Colors.grey[300]),
+                                  SizedBox(height: 8),
+                                  Text('Belum ada mahasiswa presensi', style: TextStyle(color: Colors.grey)),
+                                ],
                               ),
-                              title: Text(presensi.namaMahasiswa, style: TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text('Waktu: ${presensi.waktuPresensi.toString().substring(11, 16)}'),
                             ),
                           );
-                        },
-                      ),
+                        }
+                        
+                        return ListView.builder(
+                          shrinkWrap: true,
+                          physics: NeverScrollableScrollPhysics(),
+                          itemCount: data.length,
+                          itemBuilder: (context, index) {
+                            final presensi = data[index];
+                            final waktuPresensi = DateTime.parse(presensi['waktu_presensi']);
+                            
+                            // Note: Untuk mendapatkan nama mahasiswa, kita perlu fetch dari users table
+                            // atau menggunakan join jika stream mendukung. Untuk sementara tampilkan ID.
+                            return FutureBuilder<Map<String, dynamic>?>(
+                              future: _getMahasiswaName(presensi['mahasiswa_id']),
+                              builder: (context, nameSnapshot) {
+                                final namaMahasiswa = nameSnapshot.hasData 
+                                    ? nameSnapshot.data!['nama'] ?? 'Mahasiswa ID: ${presensi['mahasiswa_id']}'
+                                    : 'Mahasiswa ID: ${presensi['mahasiswa_id']}';
+                                
+                                return Card(
+                                  margin: EdgeInsets.only(bottom: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  child: ListTile(
+                                    leading: CircleAvatar(
+                                      backgroundColor: Colors.green[100],
+                                      child: Icon(Icons.check, color: Colors.green),
+                                    ),
+                                    title: Text(
+                                      namaMahasiswa,
+                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                    subtitle: Text('Waktu: ${waktuPresensi.toString().substring(11, 16)}'),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
                   ],
                 );
               },
@@ -291,5 +334,19 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
     }
     
     Navigator.pop(context);
+  }
+
+  // Helper method untuk mendapatkan nama mahasiswa dari users table
+  Future<Map<String, dynamic>?> _getMahasiswaName(String mahasiswaId) async {
+    try {
+      final response = await SupabaseConfig.instance
+          .from('users')
+          .select('nama')
+          .eq('id', mahasiswaId)
+          .maybeSingle();
+      return response;
+    } catch (e) {
+      return null;
+    }
   }
 }
