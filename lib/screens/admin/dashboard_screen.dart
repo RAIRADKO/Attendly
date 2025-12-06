@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import 'laporan_screen.dart'; 
+import 'tambah_user_screen.dart'; 
+import 'tambah_mk_screen.dart';   
+import 'tambah_jadwal_screen.dart'; // [IMPORT BARU]
 
 class AdminDashboardScreen extends StatefulWidget {
   @override
@@ -37,12 +41,49 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           crossAxisSpacing: 16,
           mainAxisSpacing: 16,
           children: [
+            // Menu Laporan
             _buildDashboardCard(
               context,
               'Laporan Presensi',
-              Icons.list_alt,
+              Icons.description,
               Colors.blue[600]!,
-              '/admin/laporan',
+              () => Navigator.pushNamed(context, '/admin/laporan'),
+            ),
+            
+            // Menu Tambah User
+            _buildDashboardCard(
+              context,
+              'Tambah User',
+              Icons.person_add,
+              Colors.orange[600]!,
+              () => Navigator.push(
+                context, 
+                MaterialPageRoute(builder: (_) => TambahUserScreen())
+              ),
+            ),
+
+            // Menu Tambah MK
+            _buildDashboardCard(
+              context,
+              'Tambah MK',
+              Icons.library_add,
+              Colors.green[600]!,
+              () => Navigator.push(
+                context, 
+                MaterialPageRoute(builder: (_) => TambahMataKuliahScreen())
+              ),
+            ),
+
+            // [MENU BARU] Atur Jadwal
+            _buildDashboardCard(
+              context,
+              'Atur Jadwal',
+              Icons.calendar_month,
+              Colors.orange[800]!,
+              () => Navigator.push(
+                context, 
+                MaterialPageRoute(builder: (_) => TambahJadwalScreen())
+              ),
             ),
           ],
         ),
@@ -55,21 +96,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     String title,
     IconData icon,
     Color color,
-    String route,
+    VoidCallback onTap,
   ) {
     return Card(
       elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
-        onTap: () => Navigator.pushNamed(context, route),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: EdgeInsets.all(16),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                size: 48,
-                color: color,
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 40, color: color),
               ),
               SizedBox(height: 12),
               Text(

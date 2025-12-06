@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // Pastikan nama package sesuai dengan pubspec.yaml Anda
-import 'package:presensi_mahasiswa/main.dart'; 
+import 'package:Attendly/main.dart'; 
 
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {

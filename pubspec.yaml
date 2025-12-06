@@ -1,4 +1,4 @@
-name: presensi_mahasiswa
+name: Attendly
 description: Aplikasi Presensi Mahasiswa
 publish_to: 'none'
 version: 1.0.0+1
