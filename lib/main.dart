@@ -87,13 +87,13 @@ class AuthGate extends StatelessWidget {
                 return MahasiswaDashboardScreen();
               }
               
-              return const LoginScreen(); // Fallback jika gagal ambil role
+              return LoginScreen(); // Fallback jika gagal ambil role
             },
           );
         }
 
         // Jika belum login
-        return const LoginScreen();
+        return LoginScreen();
       },
     );
   }
