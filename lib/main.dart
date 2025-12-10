@@ -53,7 +53,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// Widget baru untuk mengatur alur login/logout otomatis
+// PERBAIKAN: Widget untuk mengatur alur login/logout otomatis dengan error handling yang lebih baik
 class AuthGate extends StatelessWidget {
   const AuthGate({Key? key}) : super(key: key);
 
@@ -64,30 +64,62 @@ class AuthGate extends StatelessWidget {
       builder: (context, snapshot) {
         // Saat loading awal
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
         }
 
         final session = snapshot.data?.session;
+        final event = snapshot.data?.event;
+
+        // PERBAIKAN: Handle logout event
+        if (event == AuthChangeEvent.signedOut) {
+          return LoginScreen();
+        }
 
         // Jika ada session (User sudah login)
         if (session != null) {
-          // Disini Anda perlu logika untuk cek role (dosen/mahasiswa)
-          // Untuk sementara, kita ambil data user lagi atau simpan role di metadata
-          return FutureBuilder(
-            future: Supabase.instance.client.from('users').select('role').eq('id', session.user.id).single(),
+          // PERBAIKAN: Ambil data user lengkap dengan error handling
+          return FutureBuilder<Map<String, dynamic>?>(
+            future: _getUserRole(session.user.id),
             builder: (context, userSnap) {
               if (userSnap.connectionState == ConnectionState.waiting) {
-                return const Scaffold(body: Center(child: CircularProgressIndicator()));
+                return const Scaffold(
+                  body: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
               }
               
-              if (userSnap.hasData) {
-                final role = userSnap.data?['role'];
-                if (role == 'dosen') return DosenDashboardScreen();
-                if (role == 'admin') return AdminDashboardScreen();
-                return MahasiswaDashboardScreen();
+              if (userSnap.hasError) {
+                print('[AUTH GATE] Error fetching user role: ${userSnap.error}');
+                // Jika error, tetap tampilkan login screen
+                return LoginScreen();
               }
               
-              return LoginScreen(); // Fallback jika gagal ambil role
+              if (userSnap.hasData && userSnap.data != null) {
+                final role = (userSnap.data!['role'] as String?)?.toLowerCase().trim() ?? '';
+                
+                // PERBAIKAN: Redirect berdasarkan role dengan case-insensitive
+                switch (role) {
+                  case 'dosen':
+                    return DosenDashboardScreen();
+                  case 'admin':
+                    return AdminDashboardScreen();
+                  case 'mahasiswa':
+                    return MahasiswaDashboardScreen();
+                  default:
+                    print('[AUTH GATE] Unknown role: $role');
+                    // Jika role tidak dikenali, tampilkan login screen
+                    return LoginScreen();
+                }
+              }
+              
+              // Fallback jika data null
+              print('[AUTH GATE] User data is null');
+              return LoginScreen();
             },
           );
         }
@@ -96,5 +128,21 @@ class AuthGate extends StatelessWidget {
         return LoginScreen();
       },
     );
+  }
+
+  /// PERBAIKAN: Helper method untuk mengambil role user dengan error handling
+  Future<Map<String, dynamic>?> _getUserRole(String userId) async {
+    try {
+      final response = await Supabase.instance.client
+          .from('users')
+          .select('role, nama, email')
+          .eq('id', userId)
+          .maybeSingle();
+      
+      return response;
+    } catch (e) {
+      print('[AUTH GATE] Error getting user role: $e');
+      return null;
+    }
   }
 }

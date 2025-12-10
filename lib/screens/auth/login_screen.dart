@@ -18,6 +18,14 @@ class _LoginScreenState extends State<LoginScreen> {
   String _errorMessage = '';
 
   @override
+  void dispose() {
+    // PERBAIKAN: Dispose controllers untuk mencegah memory leak
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
@@ -199,8 +207,16 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  /// PERBAIKAN: Handle login dengan error handling yang lebih baik
+  /// Navigasi akan dihandle oleh AuthGate di main.dart, jadi tidak perlu manual navigation
   Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) return;
+    // Validasi form
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    // Dismiss keyboard
+    FocusScope.of(context).unfocus();
 
     setState(() {
       _isLoading = true;
@@ -208,34 +224,46 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final success = await Provider.of<AuthProvider>(context, listen: false)
-          .login(_emailController.text, _passwordController.text);
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      
+      // Normalisasi input
+      final email = _emailController.text.trim().toLowerCase();
+      final password = _passwordController.text;
+
+      // Login
+      final success = await authProvider.login(email, password);
 
       if (success) {
-        final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
+        final user = authProvider.currentUser;
         if (user != null) {
-          final role = user.role.toLowerCase().trim();
-          switch (role) {
-            case 'mahasiswa':
-              Navigator.pushReplacementNamed(context, '/mahasiswa/home');
-              break;
-            case 'dosen':
-              Navigator.pushReplacementNamed(context, '/dosen/home');
-              break;
-            case 'admin':
-              Navigator.pushReplacementNamed(context, '/admin/dashboard');
-              break;
-            default:
-              setState(() => _errorMessage = 'Role tidak dikenali: $role');
-          }
+          print('[LOGIN SCREEN] Login successful. Role: ${user.role}');
+          // PERBAIKAN: Tidak perlu manual navigation karena AuthGate akan handle
+          // AuthGate di main.dart akan otomatis redirect berdasarkan role
+          // Hanya perlu menunggu AuthGate rebuild dengan StreamBuilder
+        } else {
+          // Fallback jika user null (seharusnya tidak terjadi)
+          setState(() {
+            _errorMessage = 'Gagal mengambil data pengguna. Silakan coba lagi.';
+            _isLoading = false;
+          });
         }
       } else {
-        setState(() => _errorMessage = 'Login gagal, periksa email dan password.');
+        // Login gagal (error sudah di-set di provider)
+        setState(() {
+          _errorMessage = authProvider.errorMessage ?? 'Login gagal. Silakan periksa email dan password.';
+          _isLoading = false;
+        });
       }
     } catch (e) {
-      setState(() => _errorMessage = e.toString().replaceAll('Exception:', '').trim());
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      // Handle error dari provider
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final errorMsg = authProvider.errorMessage ?? 
+                      e.toString().replaceAll('Exception:', '').replaceAll('AppException:', '').trim();
+      
+      setState(() {
+        _errorMessage = errorMsg.isNotEmpty ? errorMsg : 'Terjadi kesalahan saat login. Silakan coba lagi.';
+        _isLoading = false;
+      });
     }
   }
 }
