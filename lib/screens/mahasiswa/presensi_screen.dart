@@ -414,7 +414,10 @@ class _PresensiScreenState extends State<PresensiScreen> with SingleTickerProvid
   }
 
   Future<void> _submitPresensi() async {
-    if (_otp.length != 6) {
+    // PERBAIKAN: Normalisasi OTP sebelum validasi
+    final normalizedOtp = _otp.trim().replaceAll(RegExp(r'[^0-9]'), '');
+    
+    if (normalizedOtp.length != 6) {
       _showStatus('Silakan masukkan OTP 6 digit', Colors.orange);
       return;
     }
@@ -433,7 +436,7 @@ class _PresensiScreenState extends State<PresensiScreen> with SingleTickerProvid
       }
 
       await Provider.of<PresensiProvider>(context, listen: false)
-          .submitPresensi(widget.mataKuliah.id, _otp, _lat!, _long!);
+          .submitPresensi(widget.mataKuliah.id, normalizedOtp, _lat!, _long!);
 
       _showStatus('✓ Presensi berhasil dicatat!', Colors.green);
       
@@ -443,8 +446,8 @@ class _PresensiScreenState extends State<PresensiScreen> with SingleTickerProvid
       });
       
     } catch (e) {
-      final errorMessage = e.toString().replaceAll('Exception: ', '');
-      _showStatus(errorMessage, Colors.red);
+      final errorMessage = e.toString().replaceAll('Exception: ', '').trim();
+      _showStatus(errorMessage.isNotEmpty ? errorMessage : 'Terjadi kesalahan. Coba lagi.', Colors.red);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

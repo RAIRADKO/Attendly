@@ -40,6 +40,13 @@ class DatabaseService {
   }
 
   Future<AbsenSesi> createSesiPresensi(int mataKuliahId, String dosenId, String secretKey) async {
+    // PERBAIKAN: Validasi secret key sebelum menyimpan
+    if (secretKey.isEmpty || secretKey.trim().isEmpty) {
+      throw Exception('Secret key tidak valid. Tidak dapat membuat sesi presensi.');
+    }
+    
+    final trimmedSecretKey = secretKey.trim();
+    
     final response = await _client
         .from('absen_sesi')
         .insert({
@@ -47,7 +54,7 @@ class DatabaseService {
           'dosen_id': dosenId,
           'waktu_mulai': DateTime.now().toIso8601String(),
           'status': 'dibuka',
-          'secret_key_otp': secretKey
+          'secret_key_otp': trimmedSecretKey
         })
         .select()
         .single();

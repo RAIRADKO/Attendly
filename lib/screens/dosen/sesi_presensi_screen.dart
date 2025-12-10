@@ -411,14 +411,33 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
   }
 
   void _updateOtp() {
-    if (_secretKey.isEmpty) return;
+    if (_secretKey.isEmpty) {
+      print('[OTP UPDATE ERROR] Secret key is empty');
+      return;
+    }
     
-    final otp = OtpService.generateOTP(_secretKey);
-    setState(() {
-      _currentOtp = otp;
-      _otpChangeCount++;
-    });
-    print('[OTP UPDATE #${_otpChangeCount}] New OTP: $otp at ${DateTime.now()}');
+    try {
+      final otp = OtpService.generateOTP(_secretKey);
+      setState(() {
+        _currentOtp = otp;
+        _otpChangeCount++;
+      });
+      print('[OTP UPDATE #${_otpChangeCount}] New OTP: $otp at ${DateTime.now()}');
+    } catch (e) {
+      print('[OTP UPDATE ERROR] Failed to generate OTP: $e');
+      if (mounted) {
+        setState(() {
+          _currentOtp = 'ERROR';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal menghasilkan OTP: $e'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   void _startTimer() {

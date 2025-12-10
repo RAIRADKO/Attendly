@@ -18,13 +18,31 @@ class OtpService {
   /// Menggunakan waktu Unix sebagai counter
   static String generateOTP(String secretKey, {int period = _period}) {
     try {
+      // PERBAIKAN: Validasi secret key
+      if (secretKey.isEmpty || secretKey.trim().isEmpty) {
+        print('[OTP ERROR] Secret key is empty');
+        throw Exception('Secret key tidak valid');
+      }
+      
+      final trimmedSecretKey = secretKey.trim();
+      
       // Decode secret key
       List<int> key;
       try {
-        key = base64Url.decode(secretKey);
+        key = base64Url.decode(trimmedSecretKey);
       } catch (e) {
-        // Fallback ke base64 biasa jika base64Url gagal
-        key = base64.decode(secretKey);
+        try {
+          // Fallback ke base64 biasa jika base64Url gagal
+          key = base64.decode(trimmedSecretKey);
+        } catch (e2) {
+          print('[OTP ERROR] Failed to decode secret key: $e2');
+          throw Exception('Secret key tidak valid: $e2');
+        }
+      }
+      
+      if (key.isEmpty) {
+        print('[OTP ERROR] Decoded key is empty');
+        throw Exception('Secret key kosong setelah decode');
       }
       
       // Hitung counter berdasarkan waktu
@@ -38,9 +56,10 @@ class OtpService {
       
       print('[OTP] Generated: $otp');
       return otp;
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('[OTP ERROR] Failed to generate: $e');
-      return '000000'; // Fallback untuk debugging
+      print('[OTP ERROR STACK] $stackTrace');
+      rethrow; // Jangan return fallback, throw exception agar error terdeteksi
     }
   }
 
@@ -48,20 +67,47 @@ class OtpService {
   /// Memeriksa window saat ini, sebelumnya, dan sesudahnya (±1 menit toleransi)
   static bool validateOTP(String secretKey, String inputOtp, {int period = _period}) {
     try {
+      // PERBAIKAN: Normalisasi input OTP
+      final normalizedOtp = inputOtp.trim().replaceAll(RegExp(r'[^0-9]'), '');
+      
+      if (normalizedOtp.length != _otpLength) {
+        print('[OTP VALIDATION] Invalid OTP length: ${normalizedOtp.length} (expected $_otpLength)');
+        return false;
+      }
+      
+      // PERBAIKAN: Validasi secret key
+      if (secretKey.isEmpty || secretKey.trim().isEmpty) {
+        print('[OTP VALIDATION ERROR] Secret key is empty');
+        return false;
+      }
+      
+      final trimmedSecretKey = secretKey.trim();
+      
       // Decode secret key
       List<int> key;
       try {
-        key = base64Url.decode(secretKey);
+        key = base64Url.decode(trimmedSecretKey);
       } catch (e) {
-        key = base64.decode(secretKey);
+        try {
+          key = base64.decode(trimmedSecretKey);
+        } catch (e2) {
+          print('[OTP VALIDATION ERROR] Failed to decode secret key: $e2');
+          return false;
+        }
+      }
+      
+      if (key.isEmpty) {
+        print('[OTP VALIDATION ERROR] Decoded key is empty');
+        return false;
       }
       
       // Hitung counter saat ini
       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
       final currentCounter = now ~/ period;
       
-      print('[OTP VALIDATION] Input: $inputOtp at timestamp: $now');
+      print('[OTP VALIDATION] Input: $normalizedOtp at timestamp: $now');
       print('[OTP VALIDATION] Current counter: $currentCounter');
+      print('[OTP VALIDATION] Secret key length: ${trimmedSecretKey.length}');
       
       // Cek beberapa window: -2, -1, 0, +1, +2 (total 2.5 menit toleransi)
       for (int offset = -2; offset <= 2; offset++) {
@@ -71,7 +117,7 @@ class OtpService {
         final timeOffset = offset * period;
         print('[OTP VALIDATION] Testing counter $testCounter (offset ${timeOffset}s): $expectedOtp');
         
-        if (expectedOtp == inputOtp) {
+        if (expectedOtp == normalizedOtp) {
           print('[OTP VALIDATION] ✓ Match found at offset $offset ($timeOffset seconds)');
           return true;
         }
@@ -79,8 +125,9 @@ class OtpService {
       
       print('[OTP VALIDATION] ✗ No match found in any window');
       return false;
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('[OTP VALIDATION ERROR] $e');
+      print('[OTP VALIDATION STACK] $stackTrace');
       return false;
     }
   }

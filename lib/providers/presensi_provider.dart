@@ -77,8 +77,15 @@ class PresensiProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      // PERBAIKAN: Normalisasi dan validasi input OTP
+      final normalizedOtp = inputOtp.trim().replaceAll(RegExp(r'[^0-9]'), '');
+      
+      if (normalizedOtp.length != 6) {
+        throw Exception('OTP harus terdiri dari 6 digit angka.');
+      }
+
       print('[PRESENSI] Submitting presensi...');
-      print('[PRESENSI] MK ID: $mataKuliahId, OTP: $inputOtp');
+      print('[PRESENSI] MK ID: $mataKuliahId, OTP: $normalizedOtp (original: $inputOtp)');
       print('[PRESENSI] Location: ($lat, $long)');
 
       // Pastikan user terautentikasi
@@ -103,13 +110,27 @@ class PresensiProvider with ChangeNotifier {
       final List<dynamic> sesiData = sesiResponse as List<dynamic>;
       final Map<String, dynamic> sesi = sesiData.first as Map<String, dynamic>;
       final int sesiId = sesi['id'] as int;
-      final String secretKey = (sesi['secret_key_otp'] ?? '') as String;
+      final String? secretKeyRaw = sesi['secret_key_otp'] as String?;
+      
+      // PERBAIKAN: Validasi secret key
+      if (secretKeyRaw == null || secretKeyRaw.isEmpty) {
+        print('[PRESENSI ERROR] Secret key kosong untuk sesi $sesiId');
+        throw Exception('Sesi presensi tidak valid. Silakan hubungi dosen.');
+      }
+      
+      final String secretKey = secretKeyRaw.trim();
+
+      print('[PRESENSI] Secret key length: ${secretKey.length}');
+      print('[PRESENSI] Validating OTP: $normalizedOtp');
 
       // Validasi OTP dengan secret key sesi
-      final isValidOtp = OtpService.validateOTP(secretKey, inputOtp);
+      final isValidOtp = OtpService.validateOTP(secretKey, normalizedOtp);
       if (!isValidOtp) {
-        throw Exception('OTP salah atau sudah kedaluwarsa.');
+        print('[PRESENSI] OTP validation failed');
+        throw Exception('OTP salah atau sudah kedaluwarsa. Pastikan kode yang dimasukkan benar.');
       }
+      
+      print('[PRESENSI] ✓ OTP validated successfully');
 
       // Cegah presensi ganda
       final existing = await _supabase
