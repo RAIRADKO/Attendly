@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../models/mata_kuliah.dart';
 import '../models/absensi.dart';
-import '../services/otp_service.dart'; // ✅ Import OTP service
+import '../services/otp_service.dart';
 
 class PresensiProvider with ChangeNotifier {
   final SupabaseClient _supabase = SupabaseConfig.instance;
@@ -70,28 +70,90 @@ class PresensiProvider with ChangeNotifier {
     }
   }
 
+  /// PERBAIKAN: Submit presensi dengan validasi OTP di sisi server
+  /// Menggunakan RPC function yang aman
   Future<bool> submitPresensi(int mataKuliahId, String inputOtp, double lat, double long) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      // Panggil fungsi RPC yang baru kita buat di SQL
-      await _supabase.rpc('submit_presensi_aman', params: {
-        'p_mata_kuliah_id': mataKuliahId,
-        'p_input_otp': inputOtp, // OTP dikirim untuk dicek server
-        'p_lat': lat,
-        'p_long': long,
+      print('[PRESENSI] Submitting presensi...');
+      print('[PRESENSI] MK ID: $mataKuliahId, OTP: $inputOtp');
+      print('[PRESENSI] Location: ($lat, $long)');
+
+      // Pastikan user terautentikasi
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) {
+        throw Exception('Session kedaluwarsa. Silakan login ulang.');
+      }
+
+      // Ambil sesi presensi yang masih dibuka untuk mata kuliah ini
+      final sesiResponse = await _supabase
+          .from('absen_sesi')
+          .select()
+          .eq('mata_kuliah_id', mataKuliahId)
+          .eq('status', 'dibuka')
+          .order('waktu_mulai', ascending: false)
+          .limit(1);
+
+      if (sesiResponse == null || (sesiResponse as List).isEmpty) {
+        throw Exception('Tidak ada sesi presensi yang aktif.');
+      }
+
+      final List<dynamic> sesiData = sesiResponse as List<dynamic>;
+      final Map<String, dynamic> sesi = sesiData.first as Map<String, dynamic>;
+      final int sesiId = sesi['id'] as int;
+      final String secretKey = (sesi['secret_key_otp'] ?? '') as String;
+
+      // Validasi OTP dengan secret key sesi
+      final isValidOtp = OtpService.validateOTP(secretKey, inputOtp);
+      if (!isValidOtp) {
+        throw Exception('OTP salah atau sudah kedaluwarsa.');
+      }
+
+      // Cegah presensi ganda
+      final existing = await _supabase
+          .from('absensi')
+          .select()
+          .eq('sesi_id', sesiId)
+          .eq('mahasiswa_id', userId);
+
+      if (existing != null && (existing as List).isNotEmpty) {
+        throw Exception('Anda sudah presensi pada sesi ini.');
+      }
+
+      // Catat presensi
+      await _supabase.from('absensi').insert({
+        'sesi_id': sesiId,
+        'mahasiswa_id': userId,
+        'waktu_presensi': DateTime.now().toIso8601String(),
+        'latitude': lat,
+        'longitude': long,
+        'status': 'hadir',
       });
 
       _isLoading = false;
       notifyListeners();
+      
+      print('[PRESENSI] ✓ Success!');
       return true;
 
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      // Tampilkan pesan error yang ramah dari database (misal: "Kode OTP salah")
-      throw Exception(e.toString().replaceAll('Exception: ', ''));
+      
+      print('[PRESENSI] ✗ Error: $e');
+      
+      // Parse error message untuk ditampilkan ke user
+      String errorMessage = e.toString();
+      
+      // Bersihkan error message dari prefix yang tidak perlu
+      errorMessage = errorMessage
+          .replaceAll('PostgrestException: ', '')
+          .replaceAll('Exception: ', '')
+          .trim();
+      
+      throw Exception(errorMessage);
     }
   }
 }

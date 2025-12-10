@@ -18,18 +18,22 @@ class SesiPresensiScreen extends StatefulWidget {
 }
 
 class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
-  String _currentOtp = '...';
+  String _currentOtp = 'LOADING';
   int _timeLeft = 30;
   Timer? _timer;
   bool _isSesiActive = false;
   String _secretKey = '';
-  int _otpChangeCount = 0; // Counter untuk tracking berapa kali OTP berubah
+  int _otpChangeCount = 0;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startSesi();
+    // PERBAIKAN: Delay initialization untuk memastikan context sudah siap
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        _startSesi();
+      }
     });
   }
 
@@ -43,7 +47,6 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        // Konfirmasi sebelum keluar
         return await _confirmCloseSesi();
       },
       child: Scaffold(
@@ -69,7 +72,6 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
                 }
               },
             ),
-            // Debug button (hapus di production)
             IconButton(
               icon: Icon(Icons.bug_report),
               tooltip: 'Test OTP',
@@ -93,7 +95,7 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
               ),
               SizedBox(height: 24),
 
-              // OTP Container Gradient
+              // OTP Container
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.all(32),
@@ -122,6 +124,8 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
                       ),
                     ),
                     SizedBox(height: 16),
+                    
+                    // OTP Display
                     Container(
                       padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                       decoration: BoxDecoration(
@@ -129,33 +133,63 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: Colors.white.withOpacity(0.3)),
                       ),
-                      child: Text(
-                        _currentOtp,
-                        style: TextStyle(
-                          fontSize: 48,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          letterSpacing: 8,
-                        ),
-                      ),
+                      child: _isInitialized 
+                        ? Text(
+                            _currentOtp,
+                            style: TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 8,
+                            ),
+                          )
+                        : CircularProgressIndicator(color: Colors.white),
                     ),
+                    
                     SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    
+                    // Timer Progress Bar
+                    Column(
                       children: [
-                        Icon(Icons.timer, color: Colors.purple[100], size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'Berubah dalam $_timeLeft detik',
-                          style: TextStyle(
-                            color: Colors.purple[100],
-                            fontWeight: FontWeight.w500,
-                            fontSize: 16,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.timer, color: Colors.purple[100], size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'Berubah dalam $_timeLeft detik',
+                              style: TextStyle(
+                                color: Colors.purple[100],
+                                fontWeight: FontWeight.w500,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 12),
+                        // Progress bar
+                        Container(
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: FractionallySizedBox(
+                            alignment: Alignment.centerLeft,
+                            widthFactor: _timeLeft / 30,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
                           ),
                         ),
                       ],
                     ),
+                    
                     SizedBox(height: 16),
+                    
                     Container(
                       padding: EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -170,7 +204,7 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
                           ),
                           SizedBox(height: 4),
                           Text(
-                            'OTP #${_otpChangeCount + 1} • Sesi ID: ${Provider.of<SesiProvider>(context, listen: false).currentSesi?.id ?? '-'}',
+                            'OTP #${_otpChangeCount + 1} • Counter: ${OtpService.getCurrentCounter()}',
                             style: TextStyle(color: Colors.white60, fontSize: 10),
                           ),
                         ],
@@ -268,8 +302,8 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
                                 future: _getMahasiswaName(presensi['mahasiswa_id']),
                                 builder: (context, nameSnapshot) {
                                   final namaMahasiswa = nameSnapshot.hasData 
-                                      ? nameSnapshot.data!['nama'] ?? 'Mahasiswa ID: ${presensi['mahasiswa_id']}'
-                                      : 'Mahasiswa ID: ${presensi['mahasiswa_id']}';
+                                      ? nameSnapshot.data!['nama'] ?? 'Mahasiswa'
+                                      : 'Loading...';
                                   
                                   Color statusColor = status == 'hadir' ? Colors.green : Colors.orange;
                                   IconData statusIcon = status == 'hadir' ? Icons.check : Icons.warning;
@@ -302,6 +336,7 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
               ),
               
               SizedBox(height: 24),
+              
               ElevatedButton.icon(
                 onPressed: () async {
                   if (await _confirmCloseSesi()) {
@@ -325,6 +360,7 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
   }
 
   void _startSesi() async {
+    // Generate secret key
     setState(() {
       _isSesiActive = true;
       _secretKey = OtpService.generateSecretKey();
@@ -334,12 +370,18 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
     print('Mata Kuliah: ${widget.mataKuliah.namaMk}');
     print('Secret Key: ${_secretKey.substring(0, 20)}...');
     
-    _updateOtp();
-    _startTimer();
-    
-    // Test OTP generation
+    // Test OTP
     OtpService.testOTP(_secretKey);
     
+    // Generate OTP pertama
+    _updateOtp();
+    
+    // Start timer
+    _startTimer();
+    
+    setState(() => _isInitialized = true);
+    
+    // Buat sesi di database
     final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
     if (user != null) {
       try {
@@ -369,23 +411,21 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
   }
 
   void _updateOtp() {
-    if (_secretKey.isNotEmpty) {
-      final otp = OtpService.generateOTP(_secretKey);
-      setState(() {
-        _currentOtp = otp;
-        _otpChangeCount++;
-      });
-      print('[OTP UPDATE #${_otpChangeCount}] New OTP: $otp at ${DateTime.now()}');
-    }
+    if (_secretKey.isEmpty) return;
+    
+    final otp = OtpService.generateOTP(_secretKey);
+    setState(() {
+      _currentOtp = otp;
+      _otpChangeCount++;
+    });
+    print('[OTP UPDATE #${_otpChangeCount}] New OTP: $otp at ${DateTime.now()}');
   }
 
   void _startTimer() {
-    // Calculate initial time left based on current second
-    final now = DateTime.now();
-    final secondsInPeriod = now.second % 30;
-    _timeLeft = 30 - secondsInPeriod;
+    // Hitung waktu tersisa di window saat ini
+    _timeLeft = OtpService.getTimeRemaining();
     
-    print('[TIMER] Starting timer with $_timeLeft seconds remaining');
+    print('[TIMER] Starting with $_timeLeft seconds remaining');
     
     _timer = Timer.periodic(Duration(seconds: 1), (timer) {
       if (!mounted) {
@@ -397,6 +437,7 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
         _timeLeft--;
       });
 
+      // Jika waktu habis, update OTP dan reset timer
       if (_timeLeft <= 0) {
         _updateOtp();
         _timeLeft = 30;
@@ -405,10 +446,7 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
   }
 
   void _closeSesi() {
-    setState(() {
-      _isSesiActive = false;
-    });
-    
+    setState(() => _isSesiActive = false);
     _timer?.cancel();
     
     final provider = Provider.of<SesiProvider>(context, listen: false);
@@ -427,7 +465,7 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text('Tutup Sesi?'),
-          content: Text('Apakah Anda yakin ingin menutup sesi presensi? Mahasiswa tidak akan bisa presensi setelah sesi ditutup.'),
+          content: Text('Mahasiswa tidak akan bisa presensi setelah sesi ditutup.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -454,6 +492,9 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
     
     OtpService.testOTP(_secretKey);
     
+    final counter = OtpService.getCurrentCounter();
+    final timeRemaining = OtpService.getTimeRemaining();
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -469,9 +510,13 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
               SizedBox(height: 8),
               Text('Time Left: $_timeLeft seconds'),
               SizedBox(height: 8),
+              Text('Counter: $counter'),
+              SizedBox(height: 8),
+              Text('Time Remaining: ${timeRemaining}s'),
+              SizedBox(height: 8),
               Text('OTP Changes: $_otpChangeCount'),
               SizedBox(height: 16),
-              Text('Test validation dengan OTP saat ini:'),
+              Text('Test validation:', style: TextStyle(fontWeight: FontWeight.bold)),
               SizedBox(height: 8),
               Text(
                 OtpService.validateOTP(_secretKey, _currentOtp) ? '✓ VALID' : '✗ INVALID',
