@@ -35,10 +35,9 @@ class PresensiProvider with ChangeNotifier {
             .select();
       }
 
-      if (response != null) {
-        final List<dynamic> data = response as List<dynamic>;
-        _mataKuliahList = data.map((e) => MataKuliah.fromJson(e)).toList();
-      }
+      // FIX: Hapus null check yang tidak perlu
+      final List<dynamic> data = response as List<dynamic>;
+      _mataKuliahList = data.map((e) => MataKuliah.fromJson(e)).toList();
     } catch (e) {
       debugPrint("Error fetching mata kuliah: $e");
     } finally {
@@ -58,10 +57,9 @@ class PresensiProvider with ChangeNotifier {
           .eq('mahasiswa_id', userId)
           .order('waktu_presensi', ascending: false);
 
-      if (response != null) {
-        final List<dynamic> data = response as List<dynamic>;
-        _presensiList = data.map((e) => Absensi.fromJson(e)).toList();
-      }
+      // FIX: Hapus null check yang tidak perlu
+      final List<dynamic> data = response as List<dynamic>;
+      _presensiList = data.map((e) => Absensi.fromJson(e)).toList();
     } catch (e) {
       debugPrint("Error fetching riwayat: $e");
     } finally {
@@ -70,14 +68,11 @@ class PresensiProvider with ChangeNotifier {
     }
   }
 
-  /// PERBAIKAN: Submit presensi dengan validasi OTP di sisi server
-  /// Menggunakan RPC function yang aman
   Future<bool> submitPresensi(int mataKuliahId, String inputOtp, double lat, double long) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      // PERBAIKAN: Normalisasi dan validasi input OTP
       final normalizedOtp = inputOtp.trim().replaceAll(RegExp(r'[^0-9]'), '');
       
       if (normalizedOtp.length != 6) {
@@ -88,13 +83,11 @@ class PresensiProvider with ChangeNotifier {
       print('[PRESENSI] MK ID: $mataKuliahId, OTP: $normalizedOtp (original: $inputOtp)');
       print('[PRESENSI] Location: ($lat, $long)');
 
-      // Pastikan user terautentikasi
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) {
         throw Exception('Session kedaluwarsa. Silakan login ulang.');
       }
 
-      // Ambil sesi presensi yang masih dibuka untuk mata kuliah ini
       final sesiResponse = await _supabase
           .from('absen_sesi')
           .select()
@@ -103,16 +96,16 @@ class PresensiProvider with ChangeNotifier {
           .order('waktu_mulai', ascending: false)
           .limit(1);
 
-      if (sesiResponse == null || (sesiResponse as List).isEmpty) {
+      // FIX: Hapus null check yang tidak perlu
+      final List<dynamic> sesiData = sesiResponse as List<dynamic>;
+      if (sesiData.isEmpty) {
         throw Exception('Tidak ada sesi presensi yang aktif.');
       }
 
-      final List<dynamic> sesiData = sesiResponse as List<dynamic>;
       final Map<String, dynamic> sesi = sesiData.first as Map<String, dynamic>;
       final int sesiId = sesi['id'] as int;
       final String? secretKeyRaw = sesi['secret_key_otp'] as String?;
       
-      // PERBAIKAN: Validasi secret key
       if (secretKeyRaw == null || secretKeyRaw.isEmpty) {
         print('[PRESENSI ERROR] Secret key kosong untuk sesi $sesiId');
         throw Exception('Sesi presensi tidak valid. Silakan hubungi dosen.');
@@ -123,7 +116,6 @@ class PresensiProvider with ChangeNotifier {
       print('[PRESENSI] Secret key length: ${secretKey.length}');
       print('[PRESENSI] Validating OTP: $normalizedOtp');
 
-      // Validasi OTP dengan secret key sesi
       final isValidOtp = OtpService.validateOTP(secretKey, normalizedOtp);
       if (!isValidOtp) {
         print('[PRESENSI] OTP validation failed');
@@ -132,18 +124,18 @@ class PresensiProvider with ChangeNotifier {
       
       print('[PRESENSI] ✓ OTP validated successfully');
 
-      // Cegah presensi ganda
       final existing = await _supabase
           .from('absensi')
           .select()
           .eq('sesi_id', sesiId)
           .eq('mahasiswa_id', userId);
 
-      if (existing != null && (existing as List).isNotEmpty) {
+      // FIX: Hapus null check yang tidak perlu
+      final List<dynamic> existingData = existing as List<dynamic>;
+      if (existingData.isNotEmpty) {
         throw Exception('Anda sudah presensi pada sesi ini.');
       }
 
-      // Catat presensi
       await _supabase.from('absensi').insert({
         'sesi_id': sesiId,
         'mahasiswa_id': userId,
@@ -165,10 +157,8 @@ class PresensiProvider with ChangeNotifier {
       
       print('[PRESENSI] ✗ Error: $e');
       
-      // Parse error message untuk ditampilkan ke user
       String errorMessage = e.toString();
       
-      // Bersihkan error message dari prefix yang tidak perlu
       errorMessage = errorMessage
           .replaceAll('PostgrestException: ', '')
           .replaceAll('Exception: ', '')

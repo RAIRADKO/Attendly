@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-import 'laporan_screen.dart'; 
+// REMOVED: import 'laporan_screen.dart'; - tidak digunakan karena menggunakan named route
 import 'tambah_user_screen.dart'; 
 import 'tambah_mk_screen.dart';   
-import 'tambah_jadwal_screen.dart'; // [IMPORT BARU]
+import 'tambah_jadwal_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   @override
@@ -74,7 +74,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
 
-            // [MENU BARU] Atur Jadwal
+            // Menu Atur Jadwal
             _buildDashboardCard(
               context,
               'Atur Jadwal',

@@ -31,7 +31,6 @@ class AuthService {
       return User.fromJson(response);
     } catch (e) {
       print('[AUTH ERROR] Failed to get current user: $e');
-      // Jangan throw error, return null saja agar tidak crash
       return null;
     }
   }
@@ -71,7 +70,9 @@ class AuthService {
         throw AppException('Login gagal. Session tidak dibuat.');
       }
 
-      print('[AUTH] ✓ Login successful for: ${response.user.email}');
+      // FIX: Tambahkan null check untuk response.user
+      final userEmail = response.user?.email ?? 'Unknown';
+      print('[AUTH] ✓ Login successful for: $userEmail');
       return true;
     } on AuthException catch (e) {
       print('[AUTH ERROR] AuthException: ${e.message}');
@@ -118,7 +119,7 @@ class AuthService {
 
       await _client.auth.resetPasswordForEmail(
         normalizedEmail,
-        redirectTo: null, // Bisa disesuaikan jika ada redirect URL
+        redirectTo: null,
       );
 
       print('[AUTH] ✓ Password reset email sent');

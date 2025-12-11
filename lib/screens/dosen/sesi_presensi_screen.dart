@@ -17,11 +17,11 @@ class SesiPresensiScreen extends StatefulWidget {
   _SesiPresensiScreenState createState() => _SesiPresensiScreenState();
 }
 
-class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
+class _SesiPresensiScreenState extends State<SesiPresensiScreen> with SingleTickerProviderStateMixin {
   String _currentOtp = 'LOADING';
   int _timeLeft = 30;
   Timer? _timer;
-  bool _isSesiActive = false;
+  // REMOVED: bool _isSesiActive = false; - tidak digunakan
   String _secretKey = '';
   int _otpChangeCount = 0;
   bool _isInitialized = false;
@@ -29,7 +29,6 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
   @override
   void initState() {
     super.initState();
-    // PERBAIKAN: Delay initialization untuk memastikan context sudah siap
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) {
         _startSesi();
@@ -125,7 +124,6 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
                     ),
                     SizedBox(height: 16),
                     
-                    // OTP Display
                     Container(
                       padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                       decoration: BoxDecoration(
@@ -148,7 +146,6 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
                     
                     SizedBox(height: 24),
                     
-                    // Timer Progress Bar
                     Column(
                       children: [
                         Row(
@@ -167,7 +164,6 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
                           ],
                         ),
                         SizedBox(height: 12),
-                        // Progress bar
                         Container(
                           height: 8,
                           decoration: BoxDecoration(
@@ -360,9 +356,7 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
   }
 
   void _startSesi() async {
-    // Generate secret key
     setState(() {
-      _isSesiActive = true;
       _secretKey = OtpService.generateSecretKey();
     });
 
@@ -370,18 +364,13 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
     print('Mata Kuliah: ${widget.mataKuliah.namaMk}');
     print('Secret Key: ${_secretKey.substring(0, 20)}...');
     
-    // Test OTP
     OtpService.testOTP(_secretKey);
     
-    // Generate OTP pertama
     _updateOtp();
-    
-    // Start timer
     _startTimer();
     
     setState(() => _isInitialized = true);
     
-    // Buat sesi di database
     final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
     if (user != null) {
       try {
@@ -441,7 +430,6 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
   }
 
   void _startTimer() {
-    // Hitung waktu tersisa di window saat ini
     _timeLeft = OtpService.getTimeRemaining();
     
     print('[TIMER] Starting with $_timeLeft seconds remaining');
@@ -456,7 +444,6 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
         _timeLeft--;
       });
 
-      // Jika waktu habis, update OTP dan reset timer
       if (_timeLeft <= 0) {
         _updateOtp();
         _timeLeft = 30;
@@ -465,7 +452,6 @@ class _SesiPresensiScreenState extends State<SesiPresensiScreen> {
   }
 
   void _closeSesi() {
-    setState(() => _isSesiActive = false);
     _timer?.cancel();
     
     final provider = Provider.of<SesiProvider>(context, listen: false);
