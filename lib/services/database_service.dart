@@ -185,8 +185,64 @@ class DatabaseService {
     await _client.from('kelas_jadwal').insert({
       'mata_kuliah_id': mataKuliahId,
       'hari': hari,
-      'jam_mulai': jamMulai, // Format HH:mm
+      'jam_mulai': jamMulai,
       'jam_selesai': jamSelesai,
     });
+  }
+
+  // --- ENROLLMENT MANAGEMENT ---
+
+  // 7. Get all mahasiswa
+  Future<List<User>> getAllMahasiswa() async {
+    final response = await _client
+        .from('users')
+        .select()
+        .eq('role', 'mahasiswa');
+    return (response as List).map((e) => User.fromJson(e)).toList();
+  }
+
+  // 8. Get enrolled mahasiswa for a mata kuliah
+  Future<List<Map<String, dynamic>>> getEnrolledMahasiswa(int mataKuliahId) async {
+    final response = await _client
+        .from('kelas_mahasiswa')
+        .select('*, users(id, nama, nim, email)')
+        .eq('mata_kuliah_id', mataKuliahId);
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  // 9. Enroll mahasiswa to mata kuliah
+  Future<void> enrollMahasiswa(int mataKuliahId, String mahasiswaId) async {
+    await _client.from('kelas_mahasiswa').insert({
+      'mata_kuliah_id': mataKuliahId,
+      'mahasiswa_id': mahasiswaId,
+    });
+  }
+
+  // 10. Unenroll mahasiswa from mata kuliah
+  Future<void> unenrollMahasiswa(int mataKuliahId, String mahasiswaId) async {
+    await _client
+        .from('kelas_mahasiswa')
+        .delete()
+        .eq('mata_kuliah_id', mataKuliahId)
+        .eq('mahasiswa_id', mahasiswaId);
+  }
+
+  // 11. Get mata kuliah by mahasiswa enrollment
+  Future<List<MataKuliah>> getMataKuliahByEnrollment(String mahasiswaId) async {
+    final response = await _client
+        .from('kelas_mahasiswa')
+        .select('mata_kuliah_id, mata_kuliah(*, users(nama))')
+        .eq('mahasiswa_id', mahasiswaId);
+
+    return (response as List).map((json) {
+      final mk = json['mata_kuliah'];
+      return MataKuliah.fromJson({
+        'id': mk['id'],
+        'nama_mk': mk['nama_mk'],
+        'kode_mk': mk['kode_mk'],
+        'dosen_id': mk['dosen_id'],
+        'nama_dosen': mk['users'] != null ? mk['users']['nama'] : 'Unknown',
+      });
+    }).toList();
   }
 }

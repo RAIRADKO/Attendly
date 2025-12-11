@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-// REMOVED: import 'laporan_screen.dart'; - tidak digunakan karena menggunakan named route
 import 'tambah_user_screen.dart'; 
 import 'tambah_mk_screen.dart';   
 import 'tambah_jadwal_screen.dart';
+import 'kelola_kelas_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   @override
@@ -83,6 +83,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               () => Navigator.push(
                 context, 
                 MaterialPageRoute(builder: (_) => TambahJadwalScreen())
+              ),
+            ),
+
+            // Menu Kelola Kelas
+            _buildDashboardCard(
+              context,
+              'Kelola Kelas',
+              Icons.group_add,
+              Colors.purple[600]!,
+              () => Navigator.push(
+                context, 
+                MaterialPageRoute(builder: (_) => KelolaKelasScreen())
               ),
             ),
           ],

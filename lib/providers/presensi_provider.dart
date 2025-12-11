@@ -22,22 +22,38 @@ class PresensiProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      dynamic response;
-      
       if (role == 'dosen') {
-        response = await _supabase
+        // Dosen: ambil MK yang diampu
+        final response = await _supabase
             .from('mata_kuliah')
             .select()
             .eq('dosen_id', userId);
+        
+        final List<dynamic> data = response as List<dynamic>;
+        _mataKuliahList = data.map((e) => MataKuliah.fromJson(e)).toList();
+      } else if (role == 'mahasiswa') {
+        // Mahasiswa: ambil MK yang terdaftar (enrolled)
+        final response = await _supabase
+            .from('kelas_mahasiswa')
+            .select('mata_kuliah_id, mata_kuliah(*)')
+            .eq('mahasiswa_id', userId);
+        
+        final List<dynamic> data = response as List<dynamic>;
+        _mataKuliahList = data.map((e) {
+          final mk = e['mata_kuliah'];
+          return MataKuliah.fromJson(mk);
+        }).toList();
+        
+        debugPrint('[PRESENSI] Mahasiswa enrolled in ${_mataKuliahList.length} courses');
       } else {
-        response = await _supabase
+        // Admin atau role lain: ambil semua MK
+        final response = await _supabase
             .from('mata_kuliah')
             .select();
+        
+        final List<dynamic> data = response as List<dynamic>;
+        _mataKuliahList = data.map((e) => MataKuliah.fromJson(e)).toList();
       }
-
-      // FIX: Hapus null check yang tidak perlu
-      final List<dynamic> data = response as List<dynamic>;
-      _mataKuliahList = data.map((e) => MataKuliah.fromJson(e)).toList();
     } catch (e) {
       debugPrint("Error fetching mata kuliah: $e");
     } finally {
