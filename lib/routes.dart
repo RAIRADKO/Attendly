@@ -19,15 +19,14 @@ class Routes {
     switch (settings.name) {
       // Auth
       case '/':
-        return MaterialPageRoute(builder: (_) => LoginScreen());
+        return MaterialPageRoute(builder: (_) => const LoginScreen());
       case '/forgot-password':
-        return MaterialPageRoute(builder: (_) => ForgotPasswordScreen());
+        return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());
       
       // Mahasiswa
       case '/mahasiswa/home':
         // [UPDATE] Mengarah ke Dashboard (yang punya Bottom Nav Bar)
         return MaterialPageRoute(builder: (_) => MahasiswaDashboardScreen());
-        
       case '/mahasiswa/presensi':
         // Route ini tetap dibutuhkan jika user klik "Isi Presensi" dari list mata kuliah
         final mataKuliah = settings.arguments as MataKuliah;
@@ -42,7 +41,6 @@ class Routes {
       case '/dosen/home':
         // [UPDATE] Mengarah ke Dashboard Dosen
         return MaterialPageRoute(builder: (_) => DosenDashboardScreen());
-        
       case '/dosen/sesi':
         final mataKuliah = settings.arguments as MataKuliah;
         return MaterialPageRoute(builder: (_) => SesiPresensiScreen(mataKuliah: mataKuliah));

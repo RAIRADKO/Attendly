@@ -22,10 +22,12 @@ void main() async {
     anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
   );
   
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
@@ -48,85 +50,106 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AuthGate extends StatelessWidget {
+class AuthGate extends StatefulWidget {
   const AuthGate({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<AuthState>(
-      stream: Supabase.instance.client.auth.onAuthStateChange,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
-          );
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  bool _isLoading = true;
+  String? _userRole;
+  
+  @override
+  void initState() {
+    super.initState();
+    _checkCurrentSession();
+    
+    // Listen to auth state changes
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      debugPrint('[AUTH GATE] Auth state changed: ${data.event}');
+      
+      if (data.event == AuthChangeEvent.signedIn) {
+        _checkCurrentSession();
+      } else if (data.event == AuthChangeEvent.signedOut) {
+        setState(() {
+          _userRole = null;
+          _isLoading = false;
+        });
+      }
+    });
+  }
+  
+  Future<void> _checkCurrentSession() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      debugPrint('[AUTH GATE] Current session: ${session != null ? "exists" : "null"}');
+      
+      if (session != null) {
+        final userId = session.user.id;
+        debugPrint('[AUTH GATE] User ID: $userId');
+        
+        final response = await Supabase.instance.client
+            .from('users')
+            .select('role, nama, email')
+            .eq('id', userId)
+            .maybeSingle();
+        
+        debugPrint('[AUTH GATE] User data response: $response');
+        
+        if (response != null) {
+          final role = (response['role'] as String?)?.toLowerCase().trim() ?? '';
+          debugPrint('[AUTH GATE] User role: $role');
+          setState(() {
+            _userRole = role;
+            _isLoading = false;
+          });
+          return;
         }
-
-        final session = snapshot.data?.session;
-        final event = snapshot.data?.event;
-
-        if (event == AuthChangeEvent.signedOut) {
-          return LoginScreen();
-        }
-
-        if (session != null) {
-          return FutureBuilder<Map<String, dynamic>?>(
-            future: _getUserRole(session.user.id),
-            builder: (context, userSnap) {
-              if (userSnap.connectionState == ConnectionState.waiting) {
-                return const Scaffold(
-                  body: Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                );
-              }
-              
-              if (userSnap.hasError) {
-                print('[AUTH GATE] Error fetching user role: ${userSnap.error}');
-                return LoginScreen();
-              }
-              
-              if (userSnap.hasData && userSnap.data != null) {
-                final role = (userSnap.data!['role'] as String?)?.toLowerCase().trim() ?? '';
-                
-                switch (role) {
-                  case 'dosen':
-                    return DosenDashboardScreen();
-                  case 'admin':
-                    return AdminDashboardScreen();
-                  case 'mahasiswa':
-                    return MahasiswaDashboardScreen();
-                  default:
-                    print('[AUTH GATE] Unknown role: $role');
-                    return LoginScreen();
-                }
-              }
-              
-              print('[AUTH GATE] User data is null');
-              return LoginScreen();
-            },
-          );
-        }
-
-        return LoginScreen();
-      },
-    );
+      }
+      
+      setState(() {
+        _userRole = null;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('[AUTH GATE] Error: $e');
+      setState(() {
+        _userRole = null;
+        _isLoading = false;
+      });
+    }
   }
 
-  Future<Map<String, dynamic>?> _getUserRole(String userId) async {
-    try {
-      final response = await Supabase.instance.client
-          .from('users')
-          .select('role, nama, email')
-          .eq('id', userId)
-          .maybeSingle();
-      
-      return response;
-    } catch (e) {
-      print('[AUTH GATE] Error getting user role: $e');
-      return null;
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
+    debugPrint('[AUTH GATE] Building with role: $_userRole');
+    
+    if (_userRole == null) {
+      return const LoginScreen();
+    }
+    
+    switch (_userRole) {
+      case 'dosen':
+        return DosenDashboardScreen();
+      case 'admin':
+        return AdminDashboardScreen();
+      case 'mahasiswa':
+        return MahasiswaDashboardScreen();
+      default:
+        debugPrint('[AUTH GATE] Unknown role: $_userRole');
+        return const LoginScreen();
     }
   }
 }

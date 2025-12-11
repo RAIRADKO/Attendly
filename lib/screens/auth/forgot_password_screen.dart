@@ -5,8 +5,10 @@ import '../../widgets/input_field.dart';
 import '../../widgets/custom_button.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
+  const ForgotPasswordScreen({super.key});
+
   @override
-  _ForgotPasswordScreenState createState() => _ForgotPasswordScreenState();
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
@@ -18,11 +20,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Lupa Password'),
+        title: const Text('Lupa Password'),
         backgroundColor: Colors.blue[600],
       ),
       body: Padding(
-        padding: EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
@@ -33,13 +35,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 size: 80,
                 color: Colors.blue[600],
               ),
-              SizedBox(height: 32),
-              Text(
+              const SizedBox(height: 32),
+              const Text(
                 'Masukkan email Anda untuk mereset password',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 16),
               ),
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
               InputField(
                 controller: _emailController,
                 labelText: 'Email',
@@ -54,16 +56,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   return null;
                 },
               ),
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
               CustomButton(
                 text: _isLoading ? 'Mengirim...' : 'Kirim Link Reset',
                 onPressed: _isLoading ? null : _handleForgotPassword,
                 isLoading: _isLoading,
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text('Kembali ke Login'),
+                child: const Text('Kembali ke Login'),
               ),
             ],
           ),
@@ -82,7 +84,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           .forgotPassword(_emailController.text);
       
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Link reset password telah dikirim ke email Anda')),
+        const SnackBar(content: Text('Link reset password telah dikirim ke email Anda')),
       );
       Navigator.pop(context);
     } catch (e) {

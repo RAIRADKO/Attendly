@@ -113,13 +113,14 @@ class PresensiProvider with ChangeNotifier {
       
       final String secretKey = secretKeyRaw.trim();
 
-      print('[PRESENSI] Secret key length: ${secretKey.length}');
+      print('[PRESENSI] Secret key (OTP): $secretKey');
       print('[PRESENSI] Validating OTP: $normalizedOtp');
 
+      // Validasi OTP sederhana - bandingkan langsung
       final isValidOtp = OtpService.validateOTP(secretKey, normalizedOtp);
       if (!isValidOtp) {
         print('[PRESENSI] OTP validation failed');
-        throw Exception('OTP salah atau sudah kedaluwarsa. Pastikan kode yang dimasukkan benar.');
+        throw Exception('OTP salah. Pastikan kode yang dimasukkan benar.');
       }
       
       print('[PRESENSI] ✓ OTP validated successfully');

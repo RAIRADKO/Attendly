@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-// Hapus import widget lama jika tidak dipakai atau sesuaikan
-// import '../../widgets/input_field.dart'; 
-// import '../../widgets/custom_button.dart';
 
 class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
   @override
-  _LoginScreenState createState() => _LoginScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
@@ -29,14 +28,14 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [Color(0xFFEBF5FF), Colors.white],
           ),
         ),
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Center(
           child: SingleChildScrollView(
             child: Form(
@@ -45,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   // Logo & Title
                   Container(
-                    margin: EdgeInsets.only(bottom: 32),
+                    margin: const EdgeInsets.only(bottom: 32),
                     child: Column(
                       children: [
                         Container(
@@ -55,9 +54,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             color: Colors.blue,
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: Icon(Icons.login, color: Colors.white, size: 32),
+                          child: const Icon(Icons.login, color: Colors.white, size: 32),
                         ),
-                        SizedBox(height: 16),
+                        const SizedBox(height: 16),
                         Text(
                           'Presensi Mahasiswa',
                           style: TextStyle(
@@ -66,7 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             color: Colors.grey[900],
                           ),
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
                           'Sistem Absensi Digital Kampus',
                           style: TextStyle(
@@ -208,7 +207,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   /// PERBAIKAN: Handle login dengan error handling yang lebih baik
-  /// Navigasi akan dihandle oleh AuthGate di main.dart, jadi tidak perlu manual navigation
+  /// Navigasi TIDAK dilakukan di sini - AuthGate di main.dart akan mendeteksi
+  /// perubahan auth state via StreamBuilder dan otomatis redirect ke dashboard
   Future<void> _handleLogin() async {
     // Validasi form
     if (!_formKey.currentState!.validate()) {
@@ -230,40 +230,39 @@ class _LoginScreenState extends State<LoginScreen> {
       final email = _emailController.text.trim().toLowerCase();
       final password = _passwordController.text;
 
-      // Login
+      // Login - setelah berhasil, Supabase akan trigger onAuthStateChange
+      // yang akan didengar oleh AuthGate di main.dart
       final success = await authProvider.login(email, password);
 
       if (success) {
-        final user = authProvider.currentUser;
-        if (user != null) {
-          print('[LOGIN SCREEN] Login successful. Role: ${user.role}');
-          // PERBAIKAN: Tidak perlu manual navigation karena AuthGate akan handle
-          // AuthGate di main.dart akan otomatis redirect berdasarkan role
-          // Hanya perlu menunggu AuthGate rebuild dengan StreamBuilder
-        } else {
-          // Fallback jika user null (seharusnya tidak terjadi)
+        // PERBAIKAN: Jangan navigasi manual di sini!
+        // AuthGate akan otomatis redirect berdasarkan StreamBuilder
+        // Cukup reset loading state
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+        // AuthGate akan handle redirect, tidak perlu melakukan apapun
+      } else {
+        // Login gagal (error sudah di-set di provider)
+        if (mounted) {
           setState(() {
-            _errorMessage = 'Gagal mengambil data pengguna. Silakan coba lagi.';
+            _errorMessage = authProvider.errorMessage ?? 'Login gagal. Silakan periksa email dan password.';
             _isLoading = false;
           });
         }
-      } else {
-        // Login gagal (error sudah di-set di provider)
-        setState(() {
-          _errorMessage = authProvider.errorMessage ?? 'Login gagal. Silakan periksa email dan password.';
-          _isLoading = false;
-        });
       }
     } catch (e) {
       // Handle error dari provider
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final errorMsg = authProvider.errorMessage ?? 
-                      e.toString().replaceAll('Exception:', '').replaceAll('AppException:', '').trim();
-      
-      setState(() {
-        _errorMessage = errorMsg.isNotEmpty ? errorMsg : 'Terjadi kesalahan saat login. Silakan coba lagi.';
-        _isLoading = false;
-      });
+      if (mounted) {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final errorMsg = authProvider.errorMessage ?? 
+                        e.toString().replaceAll('Exception:', '').replaceAll('AppException:', '').trim();
+        
+        setState(() {
+          _errorMessage = errorMsg.isNotEmpty ? errorMsg : 'Terjadi kesalahan saat login. Silakan coba lagi.';
+          _isLoading = false;
+        });
+      }
     }
   }
 }
