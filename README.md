@@ -126,6 +126,8 @@ flutter pub get
 flutter run
 ```
 
+---
+
 ### Panduan Pengguna (User Guide)
 Berikut versi **README.md** yang rapi, terstruktur, dan siap digunakan:
 
